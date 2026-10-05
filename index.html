@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turnero | Reservá tu turno de peluquería</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --tinta: #1B2233;
+    --rojo: #C42F3A;
+    --azul: #2B4C9B;
+    --fondo: #F3F4F7;
+    --superficie: #FFFFFF;
+    --acero: #5F6878;
+    --linea: #DDE1E8;
+    --verde: #17725A;
+    --verde-claro: #E4F2EC;
+    --titulos: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --texto: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--tinta); font: 400 1rem/1.55 var(--texto); }
+  h1, h2, h3 { font-family: var(--titulos); line-height: 1.15; margin: 0 0 .5rem; }
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; letter-spacing: -0.02em; }
+  h2 { font-size: 1.35rem; font-weight: 700; }
+  h3 { font-size: 1.1rem; font-weight: 600; }
+  p { margin: 0 0 .75rem; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
+
+  /* Franja de poste de barbero: el único adorno de la página */
+  .poste { height: 7px; background: repeating-linear-gradient(135deg, var(--rojo) 0 12px, #fff 12px 18px, var(--azul) 18px 30px, #fff 30px 36px); }
+
+  .barra { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem clamp(1rem, 4vw, 2.5rem); background: var(--superficie); border-bottom: 1px solid var(--linea); }
+  .marca { font-family: var(--titulos); font-weight: 700; font-size: 1.4rem; letter-spacing: -0.01em; }
+  .usuario { display: flex; align-items: center; gap: .75rem; color: var(--acero); font-size: .95rem; }
+
+  .contenedor { max-width: 1180px; margin: 0 auto; padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem; }
+  .panel { background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; padding: 1.25rem; }
+
+  .pestanas { display: flex; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--linea); overflow-x: auto; }
+  .pestanas button { background: none; border: 0; padding: .7rem 1rem; cursor: pointer; color: var(--acero); font-weight: 500; border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .pestanas button[aria-selected="true"] { color: var(--tinta); border-bottom-color: var(--rojo); font-weight: 600; }
+
+  label { display: block; font-weight: 500; font-size: .92rem; margin-bottom: .9rem; }
+  input[type=text], input[type=email], input[type=password], input[type=number], input[type=search], input[type=date], input[type=time], select {
+    display: block; width: 100%; margin-top: .3rem; padding: .6rem .7rem; border: 1px solid var(--linea); border-radius: 6px; background: #fff;
+  }
+  fieldset { border: 0; padding: 0; margin: 0 0 .9rem; }
+  legend { font-weight: 500; font-size: .92rem; margin-bottom: .3rem; }
+  .opciones { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .opciones label { margin: 0; font-weight: 400; display: flex; align-items: center; gap: .35rem; padding: .35rem .65rem; border: 1px solid var(--linea); border-radius: 6px; cursor: pointer; background: #fff; }
+  .opciones label:has(input:checked) { border-color: var(--tinta); background: var(--tinta); color: #fff; }
+  .opciones input { position: absolute; opacity: 0; pointer-events: none; }
+
+  .boton { display: inline-block; border: 0; border-radius: 6px; padding: .65rem 1.1rem; background: var(--tinta); color: #fff; font-weight: 600; cursor: pointer; }
+  .boton:hover { background: #2C3650; }
+  .boton.secundario { background: transparent; color: var(--tinta); border: 1px solid var(--linea); }
+  .boton.secundario:hover { background: var(--fondo); }
+  .boton.peligro { background: transparent; color: var(--rojo); border: 1px solid #EBC3C6; padding: .4rem .8rem; font-size: .9rem; }
+  .boton.peligro:hover { background: #FBEDEE; }
+  .enlace { background: none; border: 0; padding: 0; color: var(--acero); text-decoration: underline; cursor: pointer; font-size: .9rem; }
+
+  .error { color: var(--rojo); font-weight: 500; min-height: 1.4em; margin: .5rem 0 0; }
+  .nota { color: var(--acero); font-size: .92rem; }
+  .alerta { background: #FFF6E5; border: 1px solid #F0D9A8; border-radius: 8px; padding: .8rem 1rem; margin-bottom: 1.25rem; }
+
+  /* Pantalla de entrada */
+  .entrada { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(1.5rem, 5vw, 4rem); align-items: center; min-height: calc(100vh - 140px); }
+  .entrada-texto p { font-size: 1.1rem; max-width: 34em; color: #3A4256; }
+  .entrada-form { max-width: 420px; width: 100%; justify-self: end; }
+
+  /* Búsqueda de turnos */
+  .buscar { display: grid; grid-template-columns: 270px 1fr; gap: 1.5rem; align-items: start; }
+  .filtros { position: sticky; top: 1rem; }
+  .mapa { height: 260px; border-radius: 10px; border: 1px solid var(--linea); margin-bottom: 1rem; z-index: 0; }
+  .resumen { color: var(--acero); margin-bottom: 1rem; }
+  .local { background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 1rem; overflow: hidden; scroll-margin-top: 1rem; }
+  .local-cabecera { padding: 1rem 1.25rem .6rem; }
+  .local-cabecera p { color: var(--acero); margin: 0; }
+  .servicio { display: grid; grid-template-columns: 200px 1fr; gap: 1rem; padding: .9rem 1.25rem; border-top: 1px solid var(--linea); }
+  .servicio-info strong { display: block; }
+  .servicio-info span { color: var(--acero); font-size: .92rem; }
+  .precio { font-family: var(--titulos); font-weight: 700; font-size: 1.15rem; color: var(--tinta) !important; }
+
+  /* Turnos libres como talones de ticket */
+  .slots { display: flex; flex-wrap: wrap; gap: .45rem; align-content: flex-start; }
+  .slot { position: relative; padding: .5rem .75rem .5rem 1rem; border: 1.5px solid var(--verde); background: var(--verde-claro); color: var(--verde); border-radius: 6px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
+  .slot::before { content: ""; position: absolute; left: 6px; top: 7px; bottom: 7px; border-left: 1.5px dashed currentColor; opacity: .55; }
+  .slot:hover { background: var(--verde); color: #fff; }
+
+  .vacio { text-align: center; padding: 2.5rem 1rem; color: var(--acero); }
+  .vacio strong { display: block; color: var(--tinta); font-size: 1.1rem; margin-bottom: .3rem; }
+
+  /* Listas de turnos reservados */
+  .dia-titulo { font-family: var(--titulos); font-weight: 600; font-size: 1.05rem; margin: 1.25rem 0 .5rem; }
+  .dia-titulo::first-letter { text-transform: uppercase; }
+  .turno { display: grid; grid-template-columns: 70px 1fr auto; gap: 1rem; align-items: center; padding: .85rem 1rem; background: var(--superficie); border: 1px solid var(--linea); border-radius: 8px; margin-bottom: .5rem; }
+  .turno .hora { font-family: var(--titulos); font-weight: 700; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .turno p { margin: 0; }
+  .turno .nota { font-size: .88rem; }
+
+  /* Panel del peluquero */
+  .rejilla-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+  .mapa-local { height: 320px; border-radius: 8px; border: 1px solid var(--linea); margin: .3rem 0 .5rem; z-index: 0; }
+  .fila-servicio { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--linea); }
+  .fila-servicio:last-child { border-bottom: 0; }
+  .form-linea { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: .75rem; }
+  .horario { display: grid; grid-template-columns: 150px 1fr 1fr; gap: .75rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--linea); }
+  .horario label { margin: 0; }
+  .horario .dia { display: flex; align-items: center; gap: .5rem; font-weight: 500; }
+  .horario input[type=time] { margin: 0; }
+  .horario input:disabled { opacity: .4; }
+
+  .pie { text-align: center; color: var(--acero); font-size: .88rem; padding: 0 1rem 2rem; }
+
+  /* Ventana de confirmación */
+  dialog { border: 0; border-radius: 12px; padding: 0; max-width: 420px; width: calc(100% - 2rem); color: var(--tinta); }
+  dialog::backdrop { background: rgba(27, 34, 51, .45); }
+  .modal-cuerpo { padding: 1.5rem; }
+  .modal-cuerpo dl { display: grid; grid-template-columns: auto 1fr; gap: .35rem 1rem; margin: 1rem 0 1.5rem; }
+  .modal-cuerpo dt { color: var(--acero); }
+  .modal-cuerpo dd { margin: 0; font-weight: 600; }
+  .modal-botones { display: flex; gap: .5rem; justify-content: flex-end; }
+  dialog[open] { animation: aparecer .18s ease-out; }
+  @keyframes aparecer { from { transform: translateY(8px); opacity: 0; } }
+
+  .aviso { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%) translateY(150%); background: var(--tinta); color: #fff; padding: .75rem 1.2rem; border-radius: 8px; font-weight: 500; transition: transform .25s ease, opacity .25s ease; opacity: 0; pointer-events: none; z-index: 1000; max-width: calc(100% - 2rem); }
+  .aviso.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  @media (max-width: 860px) {
+    .entrada, .buscar, .rejilla-2 { grid-template-columns: 1fr; }
+    .entrada { min-height: auto; padding-top: 1rem; }
+    .entrada-form { justify-self: stretch; max-width: none; }
+    .filtros { position: static; }
+    .servicio { grid-template-columns: 1fr; gap: .6rem; }
+    .form-linea { grid-template-columns: 1fr 1fr; }
+    .form-linea label:first-child { grid-column: 1 / -1; }
+    .horario { grid-template-columns: 1fr 1fr; }
+    .horario .dia { grid-column: 1 / -1; }
+    .turno { grid-template-columns: 60px 1fr; }
+    .turno .boton { grid-column: 1 / -1; justify-self: start; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    dialog[open] { animation: none; }
+    .aviso { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="poste" aria-hidden="true"></div>
+<div id="app"></div>
+<dialog id="modal"><div class="modal-cuerpo" id="modal-cuerpo"></div></dialog>
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+<script>
+/* =========================================================
+   TURNERO: turnos de peluquería
+   Todo el programa está en este archivo.
+   Los datos se guardan en el navegador (localStorage).
+   ========================================================= */
+
+const CLAVE_DATOS = "turnero_datos_v1";
+const CLAVE_SESION = "turnero_sesion_v1";
+const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const ORDEN_DIAS = [1, 2, 3, 4, 5, 6, 0]; // lunes primero
+const MAPA_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
+const MAPA_CREDITOS = "Mapa &copy; Esri, OpenStreetMap";
+const BUENOS_AIRES = [-34.6037, -58.4216];
+const FRANJAS = { todas: [0, 1440], manana: [0, 720], tarde: [720, 1080], noche: [1080, 1440] };
+const BARRIOS = ["Almagro", "Balvanera", "Barracas", "Belgrano", "Boedo", "Caballito", "Colegiales", "Flores", "Núñez", "Palermo", "Recoleta", "Saavedra", "San Telmo", "Villa Crespo", "Villa Urquiza"];
+
+/* ---------- Guardado en el navegador ---------- */
+const memoria = {};
+const almacen = {
+  leer(k) { try { return localStorage.getItem(k); } catch (e) { return memoria[k] ?? null; } },
+  escribir(k, v) { try { localStorage.setItem(k, v); } catch (e) { memoria[k] = v; } },
+  borrar(k) { try { localStorage.removeItem(k); } catch (e) { delete memoria[k]; } }
+};
+
+/* ---------- Utilidades de fechas, horas y texto ---------- */
+const dos = n => String(n).padStart(2, "0");
+const aTexto = d => `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+const hoy = () => aTexto(new Date());
+function sumarDias(n) { const d = new Date(); d.setDate(d.getDate() + n); return aTexto(d); }
+function leerFecha(s) { const [a, m, d] = s.split("-").map(Number); return new Date(a, m - 1, d); }
+const aMinutos = h => { const [a, b] = h.split(":").map(Number); return a * 60 + b; };
+const aHora = m => `${dos(Math.floor(m / 60))}:${dos(m % 60)}`;
+const fechaLarga = s => leerFecha(s).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+const plata = n => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+const normalizar = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function finDelTurno(t) { const d = leerFecha(t.fecha); d.setMinutes(aMinutos(t.hora) + t.duracion); return d; }
+const ordenarPorFecha = (a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora);
+
+function horarios(dias, desde, hasta) {
+  const h = {};
+  for (let i = 0; i < 7; i++) h[i] = { activo: dias.includes(i), desde, hasta };
+  return h;
+}
+
+/* ---------- Datos de ejemplo para probar ---------- */
+function datosDeEjemplo() {
+  const usuarios = [
+    { id: "u1", nombre: "Tito", email: "peluquero@demo.com", clave: "1234", rol: "peluquero" },
+    { id: "u2", nombre: "Lila", email: "lila@demo.com", clave: "1234", rol: "peluquero" },
+    { id: "u3", nombre: "Marcos", email: "marcos@demo.com", clave: "1234", rol: "peluquero" },
+    { id: "u4", nombre: "Sofía", email: "cliente@demo.com", clave: "1234", rol: "cliente" },
+    { id: "u5", nombre: "Martín", email: "martin@demo.com", clave: "1234", rol: "cliente" }
+  ];
+  const lila = horarios([1, 2, 3, 4, 5], "09:00", "18:00");
+  lila[6] = { activo: true, desde: "09:00", hasta: "14:00" };
+  const peluquerias = [
+    {
+      id: "p1", duenioId: "u1", nombre: "Barbería Don Tito", direccion: "Honduras 4820", barrio: "Palermo", lat: -34.5889, lng: -58.4306,
+      servicios: [
+        { id: "s1", nombre: "Corte clásico", precio: 9000, duracion: 30 },
+        { id: "s2", nombre: "Corte y barba", precio: 14000, duracion: 45 },
+        { id: "s3", nombre: "Afeitado con navaja", precio: 7000, duracion: 30 }
+      ],
+      horarios: horarios([2, 3, 4, 5, 6], "10:00", "20:00")
+    },
+    {
+      id: "p2", duenioId: "u2", nombre: "Estudio Lila", direccion: "Av. Rivadavia 5100", barrio: "Caballito", lat: -34.6186, lng: -58.4406,
+      servicios: [
+        { id: "s4", nombre: "Corte y peinado", precio: 15000, duracion: 60 },
+        { id: "s5", nombre: "Brushing", precio: 8000, duracion: 30 },
+        { id: "s6", nombre: "Color completo", precio: 32000, duracion: 90 }
+      ],
+      horarios: lila
+    },
+    {
+      id: "p3", duenioId: "u3", nombre: "Navaja & Peine", direccion: "Juramento 2350", barrio: "Belgrano", lat: -34.5627, lng: -58.4565,
+      servicios: [
+        { id: "s7", nombre: "Corte", precio: 11000, duracion: 30 },
+        { id: "s8", nombre: "Arreglo de barba", precio: 6000, duracion: 20 },
+        { id: "s9", nombre: "Corte para chicos", precio: 7500, duracion: 30 }
+      ],
+      horarios: horarios([1, 2, 3, 4, 5, 6], "11:00", "21:00")
+    }
+  ];
+  const turno = (pel, serv, cliente, dias, hora) => {
+    const p = peluquerias.find(x => x.id === pel), s = p.servicios.find(x => x.id === serv);
+    return { id: nuevoId(), peluqueriaId: pel, servicioId: serv, servicioNombre: s.nombre, precio: s.precio, duracion: s.duracion, clienteId: cliente, fecha: sumarDias(dias), hora };
+  };
+  const turnos = [
+    turno("p1", "s1", "u5", 1, "11:00"),
+    turno("p1", "s2", "u4", 1, "12:00"),
+    turno("p2", "s6", "u5", 1, "10:00"),
+    turno("p3", "s7", "u4", 2, "18:00")
+  ];
+  return { usuarios, peluquerias, turnos };
+}
+
+/* ---------- Estado de la app ---------- */
+let db = cargarDatos();
+let usuario = db.usuarios.find(u => u.id === almacen.leer(CLAVE_SESION)) || null;
+let modoEntrada = "ingresar";
+const vista = { cliente: "buscar", peluquero: "agenda" };
+const filtros = { fecha: hoy(), barrio: "", texto: "", precioMax: "", franja: "todas", orden: "hora" };
+let mapa = null, capaMarcadores = null, ubicacionTemporal = null, reservaPendiente = null;
+
+function cargarDatos() {
+  try {
+    const guardado = almacen.leer(CLAVE_DATOS);
+    if (guardado) return JSON.parse(guardado);
+  } catch (e) { /* datos dañados: se vuelve a los de ejemplo */ }
+  const datos = datosDeEjemplo();
+  almacen.escribir(CLAVE_DATOS, JSON.stringify(datos));
+  return datos;
+}
+function guardar() { almacen.escribir(CLAVE_DATOS, JSON.stringify(db)); }
+
+function restablecer() {
+  if (!confirm("Se borran todos los cambios y vuelven los datos de ejemplo. ¿Seguir?")) return;
+  db = datosDeEjemplo(); guardar();
+  usuario = null; almacen.borrar(CLAVE_SESION);
+  render(); avisar("Datos de ejemplo restablecidos");
+}
+
+/* ---------- Lógica de turnos ---------- */
+function estaCompleta(p) {
+  return p.direccion && p.servicios.length > 0 && Object.values(p.horarios).some(h => h.activo);
+}
+
+// Calcula los horarios libres de un servicio en un día:
+// parte del horario de atención, avanza de a 30 minutos
+// y descarta los que se superponen con turnos ya reservados.
+function turnosLibres(pel, serv, fecha) {
+  const h = pel.horarios[leerFecha(fecha).getDay()];
+  if (!h || !h.activo) return [];
+  const inicio = aMinutos(h.desde), cierre = aMinutos(h.hasta);
+  const ocupados = db.turnos
+    .filter(t => t.peluqueriaId === pel.id && t.fecha === fecha)
+    .map(t => [aMinutos(t.hora), aMinutos(t.hora) + t.duracion]);
+  let minimo = -1;
+  if (fecha === hoy()) { const a = new Date(); minimo = a.getHours() * 60 + a.getMinutes() + 15; }
+  const libres = [];
+  for (let m = inicio; m + serv.duracion <= cierre; m += 30) {
+    if (m < minimo) continue;
+    const fin = m + serv.duracion;
+    if (ocupados.some(([a, b]) => m < b && fin > a)) continue;
+    libres.push(m);
+  }
+  return libres;
+}
+
+/* ---------- Pantalla general ---------- */
+function render() {
+  if (mapa) { mapa.remove(); mapa = null; capaMarcadores = null; }
+  const app = document.getElementById("app");
+  if (!usuario) { app.innerHTML = vistaEntrada(); return; }
+  app.innerHTML = barra() + `<main class="contenedor">${usuario.rol === "cliente" ? vistaCliente() : vistaPeluquero()}</main>` + pie();
+  if (usuario.rol === "cliente" && vista.cliente === "buscar") iniciarBusqueda();
+  if (usuario.rol === "peluquero" && vista.peluquero === "local") iniciarMapaLocal();
+}
+
+function barra() {
+  return `<header class="barra">
+    <span class="marca">Turnero</span>
+    <div class="usuario">
+      <span>${esc(usuario.nombre)}${usuario.rol === "peluquero" ? " (peluquería)" : ""}</span>
+      <button class="boton secundario" onclick="salir()">Salir</button>
+    </div>
+  </header>`;
+}
+function pie() {
+  return `<footer class="pie">Los datos se guardan solo en este navegador.
+    <button class="enlace" onclick="restablecer()">Restablecer datos de ejemplo</button></footer>`;
+}
+function pestanas(lista, actual, funcion) {
+  return `<nav class="pestanas" role="tablist">${lista.map(([id, txt]) =>
+    `<button role="tab" aria-selected="${id === actual}" onclick="${funcion}('${id}')">${txt}</button>`).join("")}</nav>`;
+}
+
+/* ---------- Ingresar / crear cuenta ---------- */
+function vistaEntrada() {
+  const ingresar = modoEntrada === "ingresar";
+  return `<main class="contenedor entrada">
+    <section class="entrada-texto">
+      <span class="marca">Turnero</span>
+      <h1>Reservá tu turno de peluquería sin llamar a nadie.</h1>
+      <p>Buscá por barrio, precio y horario, y reservá en dos toques. Si tenés una peluquería, cargá tus servicios y horarios y empezá a recibir turnos.</p>
+      <p class="nota">Para probar: <b>cliente@demo.com</b> o <b>peluquero@demo.com</b>, contraseña <b>1234</b>.</p>
+    </section>
+    <section class="panel entrada-form">
+      ${pestanas([["ingresar", "Ingresar"], ["registro", "Crear cuenta"]], modoEntrada, "cambiarEntrada")}
+      ${ingresar ? `
+      <form onsubmit="ingresar(event)">
+        <label>Email <input type="email" name="email" required autocomplete="email"></label>
+        <label>Contraseña <input type="password" name="clave" required autocomplete="current-password"></label>
+        <button class="boton" type="submit">Ingresar</button>
+        <p class="error" id="error"></p>
+      </form>` : `
+      <form onsubmit="registrar(event)">
+        <label>Nombre <input type="text" name="nombre" required autocomplete="name"></label>
+        <label>Email <input type="email" name="email" required autocomplete="email"></label>
+        <label>Contraseña <input type="password" name="clave" required minlength="4" autocomplete="new-password"></label>
+        <fieldset>
+          <legend>¿Para qué vas a usar Turnero?</legend>
+          <div class="opciones">
+            <label><input type="radio" name="rol" value="cliente" checked> Quiero reservar turnos</label>
+            <label><input type="radio" name="rol" value="peluquero"> Tengo una peluquería</label>
+          </div>
+        </fieldset>
+        <button class="boton" type="submit">Crear cuenta</button>
+        <p class="error" id="error"></p>
+      </form>`}
+    </section>
+  </main>`;
+}
+function cambiarEntrada(modo) { modoEntrada = modo; render(); }
+
+function ingresar(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const u = db.usuarios.find(x => x.email === normalizar(f.get("email")) && x.clave === f.get("clave"));
+  if (!u) { document.getElementById("error").textContent = "El email o la contraseña no coinciden."; return; }
+  iniciarSesion(u);
+}
+function registrar(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const email = normalizar(f.get("email"));
+  if (db.usuarios.some(x => x.email === email)) {
+    document.getElementById("error").textContent = "Ya hay una cuenta con ese email. Ingresá con tu contraseña.";
+    return;
+  }
+  const u = { id: nuevoId(), nombre: f.get("nombre").trim(), email, clave: f.get("clave"), rol: f.get("rol") };
+  db.usuarios.push(u);
+  if (u.rol === "peluquero") {
+    db.peluquerias.push({ id: nuevoId(), duenioId: u.id, nombre: `Peluquería de ${u.nombre}`, direccion: "", barrio: "", lat: null, lng: null, servicios: [], horarios: horarios([], "10:00", "19:00") });
+    vista.peluquero = "local";
+  }
+  guardar();
+  iniciarSesion(u);
+  avisar("Cuenta creada");
+}
+function iniciarSesion(u) { usuario = u; almacen.escribir(CLAVE_SESION, u.id); render(); }
+function salir() { usuario = null; almacen.borrar(CLAVE_SESION); modoEntrada = "ingresar"; render(); }
+
+/* =========================================================
+   VISTA DEL CLIENTE
+   ========================================================= */
+function vistaCliente() {
+  const cuantos = db.turnos.filter(t => t.clienteId === usuario.id && finDelTurno(t) > new Date()).length;
+  return pestanas([["buscar", "Buscar turno"], ["mis", `Mis turnos (${cuantos})`]], vista.cliente, "cambiarVistaCliente")
+    + (vista.cliente === "buscar" ? vistaBuscar() : vistaMisTurnos());
+}
+function cambiarVistaCliente(v) { vista.cliente = v; render(); }
+
+function vistaBuscar() {
+  const barrios = [...new Set(db.peluquerias.filter(estaCompleta).map(p => p.barrio).filter(Boolean))].sort();
+  const radio = (v, t) => `<label><input type="radio" name="franja" value="${v}" ${filtros.franja === v ? "checked" : ""}> ${t}</label>`;
+  return `<div class="buscar">
+    <aside class="panel filtros">
+      <h2>Buscá tu turno</h2>
+      <label>Día <input type="date" id="f-fecha" min="${hoy()}" value="${filtros.fecha}"></label>
+      <label>Barrio
+        <select id="f-barrio"><option value="">Todos los barrios</option>
+          ${barrios.map(b => `<option ${b === filtros.barrio ? "selected" : ""}>${esc(b)}</option>`).join("")}
+        </select></label>
+      <label>Servicio <input type="search" id="f-texto" placeholder="Corte, barba, color…" value="${esc(filtros.texto)}"></label>
+      <label>Precio máximo <input type="number" id="f-precio" min="0" step="500" placeholder="Sin límite" value="${filtros.precioMax}"></label>
+      <fieldset><legend>Horario</legend>
+        <div class="opciones">${radio("todas", "Todo el día")}${radio("manana", "Mañana")}${radio("tarde", "Tarde")}${radio("noche", "Noche")}</div>
+      </fieldset>
+      <label>Ordenar por
+        <select id="f-orden">
+          <option value="hora" ${filtros.orden === "hora" ? "selected" : ""}>Primer turno libre</option>
+          <option value="precio" ${filtros.orden === "precio" ? "selected" : ""}>Precio más bajo</option>
+        </select></label>
+    </aside>
+    <section>
+      <div id="mapa" class="mapa"></div>
+      <p class="resumen" id="resumen"></p>
+      <div id="resultados"></div>
+    </section>
+  </div>`;
+}
+
+function iniciarBusqueda() {
+  const leer = () => {
+    filtros.fecha = document.getElementById("f-fecha").value || hoy();
+    filtros.barrio = document.getElementById("f-barrio").value;
+    filtros.texto = document.getElementById("f-texto").value;
+    filtros.precioMax = document.getElementById("f-precio").value;
+    filtros.orden = document.getElementById("f-orden").value;
+    filtros.franja = document.querySelector('input[name="franja"]:checked').value;
+    mostrarResultados();
+  };
+  ["f-fecha", "f-barrio", "f-texto", "f-precio", "f-orden"].forEach(id => document.getElementById(id).addEventListener("input", leer));
+  document.querySelectorAll('input[name="franja"]').forEach(r => r.addEventListener("change", leer));
+
+  if (window.L) {
+    mapa = L.map("mapa", { scrollWheelZoom: false }).setView(BUENOS_AIRES, 12);
+    L.tileLayer(MAPA_URL, { attribution: MAPA_CREDITOS, maxZoom: 19 }).addTo(mapa);
+    capaMarcadores = L.layerGroup().addTo(mapa);
+  } else {
+    document.getElementById("mapa").remove(); // sin internet el mapa no carga, pero la app sigue andando
+  }
+  mostrarResultados();
+}
+
+function mostrarResultados() {
+  const [desde, hasta] = FRANJAS[filtros.franja];
+  const texto = normalizar(filtros.texto);
+  const max = Number(filtros.precioMax) || Infinity;
+  const grupos = [];
+
+  for (const pel of db.peluquerias.filter(estaCompleta)) {
+    if (filtros.barrio && pel.barrio !== filtros.barrio) continue;
+    const items = [];
+    for (const serv of pel.servicios) {
+      if (serv.precio > max) continue;
+      if (texto && !normalizar(serv.nombre).includes(texto)) continue;
+      const libres = turnosLibres(pel, serv, filtros.fecha).filter(m => m >= desde && m < hasta);
+      if (libres.length) items.push({ serv, libres });
+    }
+    if (items.length) grupos.push({ pel, items });
+  }
+
+  const porPrecio = filtros.orden === "precio";
+  const clave = g => porPrecio ? Math.min(...g.items.map(i => i.serv.precio)) : Math.min(...g.items.map(i => i.libres[0]));
+  grupos.forEach(g => g.items.sort((a, b) => porPrecio ? a.serv.precio - b.serv.precio : a.libres[0] - b.libres[0]));
+  grupos.sort((a, b) => clave(a) - clave(b));
+
+  const total = grupos.reduce((s, g) => s + g.items.reduce((t, i) => t + i.libres.length, 0), 0);
+  document.getElementById("resumen").textContent = grupos.length
+    ? `${total} turnos libres en ${grupos.length} ${grupos.length === 1 ? "peluquería" : "peluquerías"} para el ${fechaLarga(filtros.fecha)}.`
+    : "";
+
+  document.getElementById("resultados").innerHTML = grupos.length ? grupos.map(({ pel, items }) => `
+    <article class="local" id="local-${pel.id}">
+      <div class="local-cabecera">
+        <h3>${esc(pel.nombre)}</h3>
+        <p>${esc(pel.direccion)}, ${esc(pel.barrio)}</p>
+      </div>
+      ${items.map(({ serv, libres }) => `
+      <div class="servicio">
+        <div class="servicio-info">
+          <strong>${esc(serv.nombre)}</strong>
+          <span class="precio">${plata(serv.precio)}</span>
+          <span>${serv.duracion} minutos</span>
+        </div>
+        <div class="slots">
+          ${libres.map(m => `<button class="slot" onclick="pedirReserva('${pel.id}','${serv.id}','${aHora(m)}')" aria-label="Reservar ${esc(serv.nombre)} a las ${aHora(m)}">${aHora(m)}</button>`).join("")}
+        </div>
+      </div>`).join("")}
+    </article>`).join("")
+    : `<div class="panel vacio"><strong>No hay turnos libres con estos filtros.</strong>Probá con otro día, otro barrio o un horario más amplio.</div>`;
+
+  if (capaMarcadores) {
+    capaMarcadores.clearLayers();
+    const puntos = [];
+    grupos.forEach(({ pel }) => {
+      if (pel.lat == null) return;
+      puntos.push([pel.lat, pel.lng]);
+      L.circleMarker([pel.lat, pel.lng], { radius: 9, color: "#fff", weight: 2, fillColor: "#C42F3A", fillOpacity: 1 })
+        .bindTooltip(pel.nombre)
+        .on("click", () => document.getElementById("local-" + pel.id).scrollIntoView({ behavior: "smooth", block: "start" }))
+        .addTo(capaMarcadores);
+    });
+    if (puntos.length) mapa.fitBounds(puntos, { padding: [40, 40], maxZoom: 14 });
+  }
+}
+
+function pedirReserva(pelId, servId, hora) {
+  const pel = db.peluquerias.find(p => p.id === pelId);
+  const serv = pel.servicios.find(s => s.id === servId);
+  reservaPendiente = { pel, serv, hora, fecha: filtros.fecha };
+  document.getElementById("modal-cuerpo").innerHTML = `
+    <h2>Confirmá tu turno</h2>
+    <dl>
+      <dt>Lugar</dt><dd>${esc(pel.nombre)}<br><span class="nota">${esc(pel.direccion)}, ${esc(pel.barrio)}</span></dd>
+      <dt>Día</dt><dd style="text-transform:capitalize">${fechaLarga(filtros.fecha)}</dd>
+      <dt>Hora</dt><dd>${hora} (${serv.duracion} min)</dd>
+      <dt>Servicio</dt><dd>${esc(serv.nombre)}</dd>
+      <dt>Precio</dt><dd>${plata(serv.precio)}</dd>
+    </dl>
+    <div class="modal-botones">
+      <button class="boton secundario" onclick="cerrarModal()">Volver</button>
+      <button class="boton" onclick="confirmarReserva()">Confirmar reserva</button>
+    </div>`;
+  document.getElementById("modal").showModal();
+}
+function cerrarModal() { document.getElementById("modal").close(); }
+
+function confirmarReserva() {
+  const { pel, serv, hora, fecha } = reservaPendiente;
+  // Se vuelve a revisar por si el turno se ocupó mientras tanto
+  if (!turnosLibres(pel, serv, fecha).includes(aMinutos(hora))) {
+    cerrarModal(); avisar("Ese turno ya no está libre. Elegí otro horario."); mostrarResultados(); return;
+  }
+  db.turnos.push({ id: nuevoId(), peluqueriaId: pel.id, servicioId: serv.id, servicioNombre: serv.nombre, precio: serv.precio, duracion: serv.duracion, clienteId: usuario.id, fecha, hora });
+  guardar();
+  cerrarModal();
+  avisar(`Turno reservado: ${fechaLarga(fecha)} a las ${hora}`);
+  render();
+}
+
+function vistaMisTurnos() {
+  const mios = db.turnos.filter(t => t.clienteId === usuario.id && finDelTurno(t) > new Date()).sort(ordenarPorFecha);
+  if (!mios.length) return `<div class="panel vacio"><strong>Todavía no tenés turnos reservados.</strong>
+    <button class="boton" style="margin-top:1rem" onclick="cambiarVistaCliente('buscar')">Buscar turno</button></div>`;
+  return listaPorDia(mios, t => {
+    const pel = db.peluquerias.find(p => p.id === t.peluqueriaId);
+    return `<p><strong>${esc(t.servicioNombre)}</strong> en ${esc(pel ? pel.nombre : "una peluquería")}</p>
+      <p class="nota">${pel ? esc(pel.direccion) + ", " + esc(pel.barrio) + " | " : ""}${plata(t.precio)}</p>`;
+  });
+}
+
+function listaPorDia(turnos, detalle) {
+  let html = "", diaActual = "";
+  for (const t of turnos) {
+    if (t.fecha !== diaActual) { diaActual = t.fecha; html += `<h3 class="dia-titulo">${fechaLarga(t.fecha)}</h3>`; }
+    html += `<div class="turno"><span class="hora">${t.hora}</span><div>${detalle(t)}</div>
+      <button class="boton peligro" onclick="cancelarTurno('${t.id}')">Cancelar turno</button></div>`;
+  }
+  return html;
+}
+
+function cancelarTurno(id) {
+  if (!confirm("¿Cancelar este turno? El horario vuelve a quedar libre.")) return;
+  db.turnos = db.turnos.filter(t => t.id !== id);
+  guardar(); render(); avisar("Turno cancelado");
+}
+
+/* =========================================================
+   VISTA DEL PELUQUERO
+   ========================================================= */
+const miPeluqueria = () => db.peluquerias.find(p => p.duenioId === usuario.id);
+
+function vistaPeluquero() {
+  const pel = miPeluqueria();
+  const faltan = [];
+  if (!pel.direccion) faltan.push("la dirección");
+  if (!pel.servicios.length) faltan.push("al menos un servicio");
+  if (!Object.values(pel.horarios).some(h => h.activo)) faltan.push("los días y horarios de atención");
+  const alerta = faltan.length ? `<div class="alerta"><strong>Tu peluquería todavía no aparece en las búsquedas.</strong> Te falta cargar ${faltan.join(", ")}.</div>` : "";
+  const secciones = { agenda: vistaAgenda, local: vistaLocal, servicios: vistaServicios, horarios: vistaHorarios };
+  return `<h1 style="font-size:1.8rem">${esc(pel.nombre)}</h1>` + alerta
+    + pestanas([["agenda", "Agenda"], ["local", "Mi local"], ["servicios", "Servicios y precios"], ["horarios", "Horarios"]], vista.peluquero, "cambiarVistaPeluquero")
+    + secciones[vista.peluquero](pel);
+}
+function cambiarVistaPeluquero(v) { vista.peluquero = v; render(); }
+
+function vistaAgenda(pel) {
+  const turnos = db.turnos.filter(t => t.peluqueriaId === pel.id && finDelTurno(t) > new Date()).sort(ordenarPorFecha);
+  if (!turnos.length) return `<div class="panel vacio"><strong>No tenés turnos reservados.</strong>Cuando un cliente reserve, el turno aparece acá.</div>`;
+  return listaPorDia(turnos, t => {
+    const c = db.usuarios.find(u => u.id === t.clienteId);
+    return `<p><strong>${esc(c ? c.nombre : "Cliente")}</strong>: ${esc(t.servicioNombre)}</p>
+      <p class="nota">${t.duracion} min | ${plata(t.precio)}${c ? " | " + esc(c.email) : ""}</p>`;
+  });
+}
+
+function vistaLocal(pel) {
+  return `<div class="rejilla-2">
+    <form class="panel" onsubmit="guardarLocal(event)">
+      <label>Nombre de la peluquería <input type="text" name="nombre" required value="${esc(pel.nombre)}"></label>
+      <label>Dirección <input type="text" name="direccion" required placeholder="Calle y número" value="${esc(pel.direccion)}"></label>
+      <label>Barrio <input type="text" name="barrio" required list="lista-barrios" value="${esc(pel.barrio)}"></label>
+      <datalist id="lista-barrios">${BARRIOS.map(b => `<option value="${b}">`).join("")}</datalist>
+      <button class="boton" type="submit">Guardar cambios</button>
+    </form>
+    <div class="panel">
+      <h3>Ubicación en el mapa</h3>
+      <p class="nota" id="texto-ubicacion">${pel.lat != null ? "Ubicación marcada. Tocá el mapa para moverla." : "Tocá el mapa para marcar dónde está tu local."}</p>
+      <div id="mapa-local" class="mapa-local"></div>
+      <p class="nota">La ubicación se guarda con el botón "Guardar cambios".</p>
+    </div>
+  </div>`;
+}
+
+function iniciarMapaLocal() {
+  const pel = miPeluqueria();
+  ubicacionTemporal = pel.lat != null ? [pel.lat, pel.lng] : null;
+  if (!window.L) { document.getElementById("mapa-local").outerHTML = `<p class="nota">El mapa necesita conexión a internet.</p>`; return; }
+  mapa = L.map("mapa-local").setView(ubicacionTemporal || BUENOS_AIRES, ubicacionTemporal ? 15 : 12);
+  L.tileLayer(MAPA_URL, { attribution: MAPA_CREDITOS, maxZoom: 19 }).addTo(mapa);
+  const estilo = { radius: 10, color: "#fff", weight: 2, fillColor: "#C42F3A", fillOpacity: 1 };
+  let marcador = ubicacionTemporal ? L.circleMarker(ubicacionTemporal, estilo).addTo(mapa) : null;
+  mapa.on("click", e => {
+    ubicacionTemporal = [e.latlng.lat, e.latlng.lng];
+    if (marcador) marcador.setLatLng(e.latlng); else marcador = L.circleMarker(e.latlng, estilo).addTo(mapa);
+    document.getElementById("texto-ubicacion").textContent = "Ubicación marcada. Guardá los cambios para que quede registrada.";
+  });
+}
+
+function guardarLocal(e) {
+  e.preventDefault();
+  const f = new FormData(e.target), pel = miPeluqueria();
+  pel.nombre = f.get("nombre").trim();
+  pel.direccion = f.get("direccion").trim();
+  pel.barrio = f.get("barrio").trim();
+  if (ubicacionTemporal) [pel.lat, pel.lng] = ubicacionTemporal;
+  guardar(); render(); avisar("Cambios guardados");
+}
+
+function vistaServicios(pel) {
+  const duraciones = [15, 20, 30, 45, 60, 90, 120];
+  return `<div class="rejilla-2">
+    <div class="panel">
+      <h3>Tus servicios</h3>
+      ${pel.servicios.length ? pel.servicios.map(s => `
+        <div class="fila-servicio">
+          <div><strong>${esc(s.nombre)}</strong><br><span class="nota">${plata(s.precio)} | ${s.duracion} min</span></div>
+          <button class="boton peligro" onclick="borrarServicio('${s.id}')">Eliminar</button>
+        </div>`).join("") : `<p class="nota">Todavía no cargaste servicios. Agregá el primero con el formulario.</p>`}
+    </div>
+    <form class="panel" onsubmit="agregarServicio(event)">
+      <h3>Agregar servicio</h3>
+      <div class="form-linea">
+        <label>Nombre <input type="text" name="nombre" required placeholder="Ej: Corte y barba"></label>
+        <label>Precio ($) <input type="number" name="precio" required min="0" step="100"></label>
+        <label>Duración
+          <select name="duracion">${duraciones.map(d => `<option value="${d}" ${d === 30 ? "selected" : ""}>${d} min</option>`).join("")}</select></label>
+      </div>
+      <button class="boton" type="submit">Agregar servicio</button>
+    </form>
+  </div>`;
+}
+function agregarServicio(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  miPeluqueria().servicios.push({ id: nuevoId(), nombre: f.get("nombre").trim(), precio: Number(f.get("precio")), duracion: Number(f.get("duracion")) });
+  guardar(); render(); avisar("Servicio agregado");
+}
+function borrarServicio(id) {
+  if (!confirm("¿Eliminar este servicio? Los turnos ya reservados se mantienen.")) return;
+  const pel = miPeluqueria();
+  pel.servicios = pel.servicios.filter(s => s.id !== id);
+  guardar(); render(); avisar("Servicio eliminado");
+}
+
+function vistaHorarios(pel) {
+  return `<form class="panel" onsubmit="guardarHorarios(event)" style="max-width:640px">
+    <h3>Días y horarios de atención</h3>
+    <p class="nota">Los clientes ven turnos cada 30 minutos dentro de este horario.</p>
+    ${ORDEN_DIAS.map(d => { const h = pel.horarios[d]; return `
+      <div class="horario">
+        <label class="dia"><input type="checkbox" name="activo-${d}" ${h.activo ? "checked" : ""} onchange="alternarDia(${d}, this.checked)"> ${DIAS[d]}</label>
+        <label>Abre <input type="time" name="desde-${d}" value="${h.desde}" ${h.activo ? "" : "disabled"}></label>
+        <label>Cierra <input type="time" name="hasta-${d}" value="${h.hasta}" ${h.activo ? "" : "disabled"}></label>
+      </div>`; }).join("")}
+    <p class="error" id="error"></p>
+    <button class="boton" type="submit">Guardar horarios</button>
+  </form>`;
+}
+function alternarDia(d, activo) {
+  document.querySelector(`[name="desde-${d}"]`).disabled = !activo;
+  document.querySelector(`[name="hasta-${d}"]`).disabled = !activo;
+}
+function guardarHorarios(e) {
+  e.preventDefault();
+  const form = e.target, pel = miPeluqueria(), nuevos = {};
+  for (let d = 0; d < 7; d++) {
+    const activo = form[`activo-${d}`].checked, desde = form[`desde-${d}`].value, hasta = form[`hasta-${d}`].value;
+    if (activo && (!desde || !hasta || aMinutos(desde) >= aMinutos(hasta))) {
+      document.getElementById("error").textContent = `Revisá el ${DIAS[d].toLowerCase()}: la hora de cierre tiene que ser posterior a la de apertura.`;
+      return;
+    }
+    nuevos[d] = { activo, desde: desde || pel.horarios[d].desde, hasta: hasta || pel.horarios[d].hasta };
+  }
+  pel.horarios = nuevos;
+  guardar(); render(); avisar("Horarios guardados");
+}
+
+/* ---------- Mensajes cortos en pantalla ---------- */
+let temporizador;
+function avisar(texto) {
+  const el = document.getElementById("aviso");
+  el.textContent = texto; el.classList.add("visible");
+  clearTimeout(temporizador);
+  temporizador = setTimeout(() => el.classList.remove("visible"), 3000);
+}
+
+render();
+</script>
+</body>
+</html>
